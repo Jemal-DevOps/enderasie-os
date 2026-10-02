@@ -1,0 +1,26 @@
+{
+  "name": "enderasie-os",
+  "private": true,
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "lint": "turbo run lint",
+    "format": "prettier --write \"**/*.{ts,tsx,md}\"",
+    "check-types": "turbo run check-types"
+  },
+  "devDependencies": {
+    "dotenv": "^18.0.5",
+    "drizzle-kit": "^0.31.11",
+    "prettier": "3.9.6",
+    "turbo": "^2.11.7",
+    "typescript": "7.0.2"
+  },
+  "packageManager": "pnpm@11.25.0",
+  "engines": {
+    "node": ">=24"
+  },
+  "dependencies": {
+    "drizzle-orm": "^0.45.3",
+    "zod": "^4.6.5"
+  }
+}
