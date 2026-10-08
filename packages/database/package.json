@@ -5,11 +5,11 @@
   "type": "module",
   "main": "./src/index.ts",
   "types": "./src/index.ts",
-  "scripts": {
+   "scripts": {
     "generate": "drizzle-kit generate",
     "push": "drizzle-kit push",
     "studio": "drizzle-kit studio",
-    "seed": "tsx src/seed.ts",
+    "seed": "tsx --env-file=../../.env src/seed.ts",
     "seed:ops": "tsx --env-file=../../.env src/seed-ops.ts",
     "seed:enterprise": "tsx --env-file=../../.env src/seed-enterprise.ts"
   },

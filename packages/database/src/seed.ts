@@ -1,10 +1,11 @@
 import "dotenv/config";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
+import { eq } from "drizzle-orm"; // <--- Added eq for explicit fetching
 import * as schema from "./index";
 import { roles, permissions, rolePermissions, tenants, users, tenantMemberships } from "./index";
 
-// Connect to the local dev database
+// Connect to the database (local or Neon, depending on .env)
 const connectionString = process.env.DATABASE_URL!;
 const sql = postgres(connectionString);
 const db = drizzle(sql, { schema });
@@ -13,7 +14,7 @@ async function seed() {
   console.log("🌱 Seeding Enderasie OS...");
 
   // 1. Seed the 8 System Roles
-  const seededRoles = await db.insert(roles).values([
+  await db.insert(roles).values([
     { key: "company_owner", name: "Company Owner", scope: "company", description: "Full access to the company realm" },
     { key: "company_admin", name: "Company Admin", scope: "company", description: "Manages users and company settings" },
     { key: "project_manager", name: "Project Manager", scope: "project", description: "Oversees site operations and budget" },
@@ -22,12 +23,14 @@ async function seed() {
     { key: "finance_manager", name: "Finance Manager", scope: "company", description: "Manages budgets, POs, and invoices" },
     { key: "subcontractor", name: "Subcontractor", scope: "project", description: "External vendor with limited access" },
     { key: "auditor", name: "Auditor", scope: "company", description: "Read-only access to all records" },
-  ]).returning();
+  ]).onConflictDoNothing();
 
+  // EXPLICITLY fetch them from the DB so we have their IDs!
+  const seededRoles = await db.select().from(roles);
   console.log("✅ Roles seeded");
 
   // 2. Seed the Permission Catalog
-  const seededPerms = await db.insert(permissions).values([
+  await db.insert(permissions).values([
     { key: "tenant.manage", module: "core", action: "manage" },
     { key: "user.manage", module: "core", action: "manage" },
     { key: "project.create", module: "project", action: "create" },
@@ -37,8 +40,10 @@ async function seed() {
     { key: "inventory.min.create", module: "inventory", action: "create" },
     { key: "finance.budget.edit", module: "finance", action: "edit" },
     { key: "finance.invoice.approve", module: "finance", action: "approve" },
-  ]).returning();
+  ]).onConflictDoNothing();
 
+  // EXPLICITLY fetch them!
+  const seededPerms = await db.select().from(permissions);
   console.log("✅ Permissions seeded");
 
   // Helper to find a permission ID by its key
@@ -67,32 +72,38 @@ async function seed() {
     // Finance gets finance modules
     { roleId: finance.id, permissionId: permId("finance.budget.edit") },
     { roleId: finance.id, permissionId: permId("finance.invoice.approve") },
-  ]);
+  ]).onConflictDoNothing();
 
   console.log("✅ Role-Permissions mapped");
 
   // 4. Create the First Tenant & Super Admin
-  const [tenant] = await db.insert(tenants).values({
+  await db.insert(tenants).values({
     slug: "enderasie-gc",
     name: "Enderasie General Construction",
     country: "ET",
     currency: "ETB",
-  }).returning();
+  }).onConflictDoNothing();
+
+  // Explicitly fetch the tenant we just created (or already existed)
+  const [tenant] = await db.select().from(tenants).where(eq(tenants.slug, "enderasie-gc"));
 
   // Note: We use a dummy hash here. The API layer will handle real bcrypt hashing when users register/reset.
-  const [superAdmin] = await db.insert(users).values({
+  await db.insert(users).values({
     email: "admin@enderasie.com",
     passwordHash: "super_secret_hash_replace_in_api", 
     fullName: "Jemal (Super Admin)",
     phone: "+251900000000",
-  }).returning();
+  }).onConflictDoNothing();
+
+  // Explicitly fetch the user
+  const [superAdmin] = await db.select().from(users).where(eq(users.email, "admin@enderasie.com"));
 
   // 5. Link the User to the Tenant with the Owner Role
   await db.insert(tenantMemberships).values({
     tenantId: tenant.id,
     userId: superAdmin.id,
     roleId: owner.id,
-  });
+  }).onConflictDoNothing();
 
   console.log("🏢 First Tenant & Super Admin created!");
   console.log("📧 Email: admin@enderasie.com");
