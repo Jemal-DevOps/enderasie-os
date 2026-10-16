@@ -3,6 +3,11 @@ import { useTranslation } from "react-i18next";
 import { CheckCircle, AlertCircle, Loader2 } from "lucide-react";
 import { api } from "../lib/api";
 
+interface Action {
+  action: string;
+  label: string;
+}
+
 interface Approval {
   id: string;
   title: string;
@@ -10,7 +15,7 @@ interface Approval {
   estimatedCost: string;
   projectName: string;
   createdAt: string;
-  requiredAction: string;
+  availableActions: Action[];
 }
 
 export default function Inbox() {
@@ -38,12 +43,11 @@ export default function Inbox() {
       let endpoint = `/api/requests/${id}/${action}`;
       let body = {};
 
-      // Handle special payloads for specific actions
-      if (action === "issue") body = { issuedQty: 100, shortQty: 0 }; // Mocking full stock issue for UI demo
+      if (action === "issue") body = { issuedQty: 100, shortQty: 0 };
       if (action === "void" || action === "return") body = { reason: "Processed via UI" };
 
       await api(endpoint, { method: "POST", body: JSON.stringify(body) });
-      await fetchInbox(); // Refresh inbox after action
+      await fetchInbox();
     } catch (err) {
       alert((err as Error).message);
     } finally {
@@ -81,14 +85,19 @@ export default function Inbox() {
                   {t("labels.cost")}: <span className="font-semibold text-text-primary">{Number(item.estimatedCost).toLocaleString()} ETB</span>
                 </div>
                 
-                <button
-                  onClick={() => handleAction(item.id, item.requiredAction)}
-                  disabled={processing === item.id}
-                  className="flex items-center gap-2 bg-brand-orange hover:bg-brand-orangeHover text-white px-5 py-2 rounded-lg text-sm font-semibold transition-colors disabled:opacity-50"
-                >
-                  {processing === item.id ? <Loader2 size={16} className="animate-spin" /> : <AlertCircle size={16} />}
-                  {t(`actions.${item.requiredAction}`) || item.requiredAction}
-                </button>
+                <div className="flex gap-2">
+                  {item.availableActions.map((action) => (
+                    <button
+                      key={action.action}
+                      onClick={() => handleAction(item.id, action.action)}
+                      disabled={processing === item.id}
+                      className="flex items-center gap-2 bg-brand-orange hover:bg-brand-orangeHover text-white px-5 py-2 rounded-lg text-sm font-semibold transition-colors disabled:opacity-50"
+                    >
+                      {processing === item.id ? <Loader2 size={16} className="animate-spin" /> : <AlertCircle size={16} />}
+                      {action.label}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
           ))}

@@ -1,46 +1,46 @@
 import { Router } from "express";
 import { eq, inArray, and } from "drizzle-orm";
-import { db, rolePermissions, permissions, materialRequests, projects } from "@enderasie/database";
+import { db, materialRequests, projects } from "@enderasie/database";
 import { requireAuth, AuthRequest } from "../middleware/auth.js";
 import { requirePermission } from "../middleware/rbac.js";
+import { getRolePermissions } from "../lib/permissionCache.js";
+import { asyncHandler } from "../lib/asyncHandler.js";
 
 const router = Router();
 
 // Map permissions to the state they can act upon, and the API action required
-const APPROVAL_MATRIX: Record<string, { from: string; action: string }> = {
-  "material.verify_eng":      { from: "submitted",           action: "verify" },
-  "material.approve_pm":      { from: "eng_verified",        action: "approve_pm" },
-  "material.issue_stock":     { from: "pm_approved",         action: "issue" },
-  "material.procure":         { from: "procurement_pending", action: "procure" },
-  "material.review_issuance": { from: "store_issued",        action: "close" },
+const APPROVAL_MATRIX: Record<string, { from: string; action: string; label: string }> = {
+  "material.verify_eng":      { from: "submitted",           action: "verify",     label: "Verify" },
+  "material.approve_pm":      { from: "eng_verified",        action: "approve_pm", label: "Approve" },
+  "material.reject_pm":       { from: "eng_verified",        action: "reject_pm",  label: "Reject" },
+  "material.issue_stock":     { from: "pm_approved",         action: "issue",      label: "Issue Stock" },
+  "material.procure":         { from: "procurement_pending", action: "procure",    label: "Procure Shortage" },
+  "material.review_issuance": { from: "store_issued",        action: "close",      label: "Close & Deliver" },
 };
 
 router.get(
   "/awaiting-me",
   requireAuth,
   requirePermission("approvals.view_inbox"),
-  async (req: AuthRequest, res) => {
+  asyncHandler(async (req: AuthRequest, res) => {
     const { roleId, tenantId } = req.user!;
 
-    // 1. Get all permissions for this user's role
-    const userPerms = await db
-      .select({ key: permissions.key })
-      .from(rolePermissions)
-      .innerJoin(permissions, eq(rolePermissions.permissionId, permissions.id))
-      .where(eq(rolePermissions.roleId, roleId));
+    // 1. Get permissions from IN-MEMORY CACHE (no DB round-trip!)
+    const keys = await getRolePermissions(roleId);
 
-    // 2. Filter to approval permissions and map to expected statuses
-    const actionableStatuses: string[] = [];
-    const actionMap: Record<string, string> = {}; 
+    // 2. Build a map: status → array of available actions (fixes overwrite bug)
+    const actionableStatuses: Set<string> = new Set();
+    const actionMap: Record<string, { action: string; label: string }[]> = {};
 
-    for (const { key } of userPerms) {
-      if (APPROVAL_MATRIX[key]) {
-        actionableStatuses.push(APPROVAL_MATRIX[key].from);
-        actionMap[APPROVAL_MATRIX[key].from] = APPROVAL_MATRIX[key].action;
+    for (const [perm, rule] of Object.entries(APPROVAL_MATRIX)) {
+      if (keys.has(perm)) {
+        actionableStatuses.add(rule.from);
+        if (!actionMap[rule.from]) actionMap[rule.from] = [];
+        actionMap[rule.from].push({ action: rule.action, label: rule.label });
       }
     }
 
-    if (actionableStatuses.length === 0) {
+    if (actionableStatuses.size === 0) {
       return res.json({ approvals: [], message: "Your role has no pending approval actions." });
     }
 
@@ -59,18 +59,18 @@ router.get(
       .where(
         and(
           eq(projects.tenantId, tenantId),
-          inArray(materialRequests.status, actionableStatuses as any) // cast to any for Drizzle enum typing
+          inArray(materialRequests.status, Array.from(actionableStatuses) as any)
         )
       );
 
-    // 4. Attach the required action to each request
-    const results = approvals.map(req => ({
+    // 4. Attach ALL available actions to each request
+    const results = approvals.map((req) => ({
       ...req,
-      requiredAction: actionMap[req.status]
+      availableActions: actionMap[req.status] || [],
     }));
 
     res.json({ approvals: results, count: results.length });
-  }
+  })
 );
 
 export default router;
