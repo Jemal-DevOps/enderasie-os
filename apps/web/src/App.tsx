@@ -6,6 +6,7 @@ import Layout from "./components/Layout";
 import Inbox from "./pages/Inbox";
 import Requests from "./pages/Requests";
 import Contracts from "./pages/Contracts";
+import Subcontracts from "./pages/Subcontracts";
 
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -34,6 +35,7 @@ export default function App() {
           <Route path="approvals" element={<Inbox />} />
           <Route path="requests" element={<Requests />} />
           <Route path="contracts" element={<Contracts />} />
+          <Route path="subcontracts" element={<Subcontracts />} />
         </Route>
 
         <Route path="*" element={<Navigate to="/login" replace />} />

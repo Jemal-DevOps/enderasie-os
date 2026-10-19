@@ -2,7 +2,7 @@ import { Response, NextFunction } from "express";
 import { and, eq } from "drizzle-orm";
 import { db, projects, materialRequests, contracts, ipcs } from "@enderasie/database";
 import { AuthRequest } from "./auth.js";
-
+import { db, projects, materialRequests, contracts, ipcs, subcontracts, measurements } from "@enderasie/database";
 // Guard 1: Projects
 export async function requireProjectScope(req: AuthRequest, res: Response, next: NextFunction) {
   const projectId = req.params.projectId || req.body?.projectId;
@@ -39,5 +39,27 @@ export async function requireIpcScope(req: AuthRequest, res: Response, next: Nex
     .innerJoin(contracts, eq(ipcs.contractId, contracts.id))
     .where(and(eq(ipcs.id, ipcId), eq(contracts.tenantId, req.user!.tenantId)));
   if (!row) return res.status(404).json({ error: "IPC not found in your company" });
+  next();
+}
+// Guard: Subcontracts (Prevents cross-tenant access to subcontracts)
+export async function requireSubcontractScope(req: AuthRequest, res: Response, next: NextFunction) {
+  const subcontractId = req.params.id || req.body?.subcontractId;
+  if (!subcontractId) return next();
+  const [row] = await db.select({ id: subcontracts.id })
+    .from(subcontracts)
+    .where(and(eq(subcontracts.id, subcontractId), eq(subcontracts.tenantId, req.user!.tenantId)));
+  if (!row) return res.status(404).json({ error: "Subcontract not found in your company" });
+  next();
+}
+
+// Guard: Measurements (Prevents cross-tenant access to measurements)
+export async function requireMeasurementScope(req: AuthRequest, res: Response, next: NextFunction) {
+  const measurementId = req.params.id;
+  if (!measurementId) return next();
+  const [row] = await db.select({ id: measurements.id })
+    .from(measurements)
+    .innerJoin(subcontracts, eq(measurements.subcontractId, subcontracts.id))
+    .where(and(eq(measurements.id, measurementId), eq(subcontracts.tenantId, req.user!.tenantId)));
+  if (!row) return res.status(404).json({ error: "Measurement not found in your company" });
   next();
 }

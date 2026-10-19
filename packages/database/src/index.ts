@@ -10,6 +10,7 @@ export * from "./schema/identity.js";
 export * from "./schema/projects.js";
 export * from "./schema/operations.js"; // <--- NEW
 export * from "./schema/finance.js";
+export * from "./schema/subcontracts";
 
 const connectionString = process.env.DATABASE_URL!;
 const client = postgres(connectionString);
