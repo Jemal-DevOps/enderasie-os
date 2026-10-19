@@ -40,6 +40,11 @@ async function seed() {
     { key: "inventory.min.create", module: "inventory", action: "create" },
     { key: "finance.budget.edit", module: "finance", action: "edit" },
     { key: "finance.invoice.approve", module: "finance", action: "approve" },
+    { key: "finance.contract.create", module: "finance", action: "create" },
+    { key: "finance.contract.view", module: "finance", action: "view" },
+    { key: "finance.ipc.create", module: "finance", action: "create" },
+    { key: "finance.ipc.approve", module: "finance", action: "approve" },
+    { key: "finance.receipt.record", module: "finance", action: "create" },
   ]).onConflictDoNothing();
 
   // EXPLICITLY fetch them!

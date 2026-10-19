@@ -11,7 +11,9 @@
     "studio": "drizzle-kit studio",
     "seed": "tsx --env-file=../../.env src/seed.ts",
     "seed:ops": "tsx --env-file=../../.env src/seed-ops.ts",
-    "seed:enterprise": "tsx --env-file=../../.env src/seed-enterprise.ts"
+    "seed:enterprise": "tsx --env-file=../../.env src/seed-enterprise.ts",
+    "seed:enterprise": "tsx --env-file=../../.env src/seed-enterprise.ts && tsx --env-file=../../.env src/seed-finance.ts",
+    "seed:ops:data": "tsx --env-file=../../.env src/seed-ops-data.ts"
   },
   "dependencies": {
     "dotenv": "^18.0.5",
