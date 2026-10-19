@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Plus, X, Loader2, FileText, DollarSign, CheckCircle } from "lucide-react";
+//import { Plus, X, Loader2, FileText, DollarSign, CheckCircle } from "lucide-react";
 import { api } from "../lib/api";
-
+import { Plus, X, Loader2 } from "lucide-react";
 interface Contract { id: string; contractNumber: string; clientName: string; totalValue: string; retentionPercent: string; projectId: string; }
 interface Project { id: string; name: string; code: string; }
 interface Ipc { id: string; ipcNumber: string; claimedAmount: string; approvedAmount: string; status: string; contractId: string; }
