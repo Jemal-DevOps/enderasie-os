@@ -1,8 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
+import { Plus, X, Loader2 } from "lucide-react";
 //import { Plus, X, Loader2, FileText, DollarSign, CheckCircle } from "lucide-react";
 import { api } from "../lib/api";
-import { Plus, X, Loader2 } from "lucide-react";
 interface Contract { id: string; contractNumber: string; clientName: string; totalValue: string; retentionPercent: string; projectId: string; }
 interface Project { id: string; name: string; code: string; }
 interface Ipc { id: string; ipcNumber: string; claimedAmount: string; approvedAmount: string; status: string; contractId: string; }
@@ -22,24 +22,31 @@ export default function Contracts() {
   const [ipcForm, setIpcForm] = useState({ ipcNumber: "", claimedAmount: "" });
   const [receiptForm, setReceiptForm] = useState({ ipcId: "", amount: "" });
 
-  const loadData = async () => {
+    const loadData = async () => {
     try {
       const [cData, pData] = await Promise.all([
         api<{ contracts: Contract[] }>("/api/finance/contracts"),
         api<{ projects: Project[] }>("/api/projects"),
       ]);
       setContracts(cData.contracts);
-            setProjects(pData.projects);
-      // Auto-fill the project picker so the user never faces an empty required select
+      setProjects(pData.projects);
       if (pData.projects.length > 0) {
         setContractForm((f) => ({ ...f, projectId: f.projectId || pData.projects[0].id }));
       }
-    } finally { setLoading(false); }
+      if (selectedContract) {
+        const iData = await api<{ ipcs: Ipc[] }>(`/api/finance/contracts/${selectedContract.id}/ipcs`);
+        setIpcs(iData.ipcs);
+      }
+    } catch (err) {
+      console.error("loadData failed:", err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => { loadData(); }, [selectedContract]);
 
-  const createContract = async (e: React.FormEvent) => {
+  const createContract = async (e: FormEvent) => {
         if (!contractForm.projectId) {
       alert("Please select a project first.");
       return;
@@ -52,7 +59,7 @@ export default function Contracts() {
     } catch (err) { alert((err as Error).message); } finally { setActionLoading(false); }
   };
 
-  const createIpc = async (e: React.FormEvent) => {
+  const createIpc = async (e: FormEvent) => {
     e.preventDefault(); setActionLoading(true);
     try {
       await api(`/api/finance/contracts/${selectedContract?.id}/ipcs`, { method: "POST", body: JSON.stringify(ipcForm) });
@@ -166,12 +173,21 @@ export default function Contracts() {
                     </button>
                   )}
 
-                  {(ipc.status === 'approved' || ipc.status === 'partially_paid') && (
+                                    {(ipc.status === 'approved' || ipc.status === 'partially_paid') && (
                     <form onSubmit={recordReceipt} className="flex gap-1">
-                      <input type="hidden" value={ipc.id} onChange={e => setReceiptForm({...receiptForm, ipcId: e.target.value})} />
-                      <input type="hidden" value={ipc.id} onChange={e => setReceiptForm(f => ({...f, ipcId: ipc.id}))} />
-                      <input type="number" placeholder="Amount" value={receiptForm.ipcId === ipc.id ? receiptForm.amount : ""} onChange={e => setReceiptForm({...receiptForm, ipcId: ipc.id, amount: e.target.value})} className="w-24 text-xs border rounded px-2 py-1" required />
-                      <button type="submit" disabled={actionLoading} className="text-xs bg-green-600 text-white px-2 py-1 rounded hover:bg-green-700 disabled:opacity-50">
+                      <input
+                        type="number"
+                        placeholder="Amount"
+                        value={receiptForm.ipcId === ipc.id ? receiptForm.amount : ""}
+                        onChange={(e) => setReceiptForm({ ...receiptForm, ipcId: ipc.id, amount: e.target.value })}
+                        className="w-24 text-xs border rounded px-2 py-1"
+                        required
+                      />
+                      <button
+                        type="submit"
+                        disabled={actionLoading}
+                        className="text-xs bg-green-600 text-white px-2 py-1 rounded hover:bg-green-700 disabled:opacity-50"
+                      >
                         {t("receipt.record")}
                       </button>
                     </form>
