@@ -8,6 +8,7 @@ import Requests from "./pages/Requests";
 import Contracts from "./pages/Contracts";
 import Subcontracts from "./pages/Subcontracts";
 import HR from "./pages/HR";
+import Insights from "./pages/Insights";
 
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -38,6 +39,7 @@ export default function App() {
           <Route path="contracts" element={<Contracts />} />
           <Route path="subcontracts" element={<Subcontracts />} />
           <Route path="hr" element={<HR />} />
+          <Route path="insights" element={<Insights />} />
         </Route>
 
         <Route path="*" element={<Navigate to="/login" replace />} />

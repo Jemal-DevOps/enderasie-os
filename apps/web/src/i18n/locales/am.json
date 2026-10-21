@@ -108,5 +108,18 @@
   "hr.total_net": "ጠቅላላ ከፍተኛ ክፍያ",
   "hr.entries": "የደመወዝ ዝርዝር",
   "hr.base_pay": "መሰረታዊ ክፍያ",
-  "hr.ot_pay": "የተጨማሪ ሰዓት ክፍያ"
+  "hr.ot_pay": "የተጨማሪ ሰዓት ክፍያ",
+    "nav.insights": "ግንቤዎች",
+  "insights.title": "የቦርድ ክል ንዛቤዎች",
+  "insights.contracted": "ኮንትራት የተፈረመ",
+  "insights.billed": "የተሰላ",
+  "insights.collected": "የተሰበሰበ",
+  "insights.subcontracted": "ንዑስ ኮንትራት የተፈረመ",
+  "insights.paid_out": "የተከፈለ",
+  "insights.payroll": "ደመወዝ",
+  "insights.net": "የተጣራ ሁኔታ",
+  "insights.cashflow": "ወርሃዊ የገንዘብ ፍሰት",
+  "insights.cost_structure": "ገቢ ከጪ መቅር ር",
+  "insights.inflow": "ገ ገንዘ",
+  "insights.outflow": "ወጪ ገንዘብ"
 }

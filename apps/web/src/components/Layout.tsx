@@ -1,6 +1,6 @@
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { LayoutDashboard, Inbox, ClipboardList, FileText, LogOut, Users } from "lucide-react";
+import { LayoutDashboard, Inbox, ClipboardList, FileText, Users, LogOut, BarChart3 } from "lucide-react";
 import { auth } from "../lib/auth";
 import LanguageSwitcher from "./LanguageSwitcher";
 
@@ -11,6 +11,7 @@ const navItems = [
   { to: "/contracts", icon: FileText, labelKey: "nav.contracts" },
   { to: "/subcontracts", icon: Users, labelKey: "nav.subcontracts" },
   { to: "/hr", icon: Users, labelKey: "nav.hr" },
+  { to: "/insights", icon: BarChart3, labelKey: "nav.insights" },
 ];
 
 export default function Layout() {

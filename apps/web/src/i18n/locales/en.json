@@ -108,5 +108,18 @@
   "hr.total_net": "Total Net Pay",
   "hr.entries": "Payroll Entries",
   "hr.base_pay": "Base Pay",
-  "hr.ot_pay": "Overtime Pay"
+  "hr.ot_pay": "Overtime Pay",
+    "nav.insights": "Insights",
+  "insights.title": "Boardroom Insights",
+  "insights.contracted": "Contracted",
+  "insights.billed": "Billed",
+  "insights.collected": "Collected",
+  "insights.subcontracted": "Subcontracted",
+  "insights.paid_out": "Paid Out",
+  "insights.payroll": "Payroll",
+  "insights.net": "Net Position",
+  "insights.cashflow": "Monthly Cash Flow",
+  "insights.cost_structure": "Collection vs Cost Structure",
+  "insights.inflow": "Money In",
+  "insights.outflow": "Money Out"
 }
