@@ -14,7 +14,7 @@
     "seed:enterprise": "tsx --env-file=../../.env src/seed-enterprise.ts",
     "seed:enterprise": "tsx --env-file=../../.env src/seed-enterprise.ts && tsx --env-file=../../.env src/seed-finance.ts",
     "seed:ops:data": "tsx --env-file=../../.env src/seed-ops-data.ts",
-    "seed:enterprise": "tsx --env-file=../../.env src/seed-enterprise.ts && tsx --env-file=../../.env src/seed-finance.ts && tsx --env-file=../../.env src/seed-subcontracts.ts"
+   "seed:enterprise": "tsx --env-file=../../.env src/seed-enterprise.ts && tsx --env-file=../../.env src/seed-finance.ts && tsx --env-file=../../.env src/seed-subcontracts.ts && tsx --env-file=../../.env src/seed-hr.ts"
   },
   "dependencies": {
     "dotenv": "^18.0.5",

@@ -10,6 +10,7 @@ const navItems = [
   { to: "/requests", icon: ClipboardList, labelKey: "nav.requests" },
   { to: "/contracts", icon: FileText, labelKey: "nav.contracts" },
   { to: "/subcontracts", icon: Users, labelKey: "nav.subcontracts" },
+  { to: "/hr", icon: Users, labelKey: "nav.hr" },
 ];
 
 export default function Layout() {

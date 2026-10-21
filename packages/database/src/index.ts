@@ -11,6 +11,7 @@ export * from "./schema/projects.js";
 export * from "./schema/operations.js"; // <--- NEW
 export * from "./schema/finance.js";
 export * from "./schema/subcontracts";
+export * from "./schema/hr.ts";
 
 const connectionString = process.env.DATABASE_URL!;
 const client = postgres(connectionString);

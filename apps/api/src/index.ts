@@ -9,6 +9,8 @@ import approvalRoutes from "./routes/approvals.js";
 import projectRoutes from "./routes/projects.js";
 import { asyncHandler } from "./lib/asyncHandler.js";
 import subcontractRoutes from "./routes/subcontracts.js";
+import hrRoutes from "./routes/hr.js";
+
 
 
 const app = express();
@@ -22,9 +24,8 @@ app.use("/api/finance", financeRoutes);
 app.use("/api/requests", requestRoutes);
 app.use("/api/approvals", approvalRoutes);
 app.use("/api/projects", projectRoutes);
-
 app.use("/api/subcontracts", subcontractRoutes);
-
+app.use("/api/hr", hrRoutes);
 // Health Check Route
 app.get("/health", asyncHandler(async (req, res) => {
   const tenantList = await db.select().from(tenants);
