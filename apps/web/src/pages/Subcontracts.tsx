@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
-import { Plus, X, Loader2 } from "lucide-react";
+import { Plus, X, Loader2, Download } from "lucide-react";
 import { api } from "../lib/api";
 
 interface Subcontractor { id: string; name: string; trade: string | null; phone: string | null; status: string; }
@@ -96,6 +96,32 @@ export default function Subcontracts() {
     } catch (err) { alert((err as Error).message); } finally { setActionLoading(false); }
   };
 
+  const downloadMeasurementCert = async (mId: string, mNumber: string) => {
+    setActionLoading(true);
+    try {
+      const token = localStorage.getItem("enderasie_token");
+      const base = (import.meta.env.VITE_API_URL as string) || "http://localhost:4000";
+      const res = await fetch(`${base}/api/subcontracts/measurements/${mId}/certificate`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        throw new Error(data?.error || "Failed to download certificate");
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `MC_${mNumber}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      alert((err as Error).message);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   if (loading) return <div className="flex justify-center h-64 items-center"><Loader2 className="animate-spin text-brand-orange" size={32} /></div>;
 
   const totalSubcontracted = subcontracts.reduce((s, c) => s + parseFloat(c.totalValue || "0"), 0);
@@ -107,9 +133,7 @@ export default function Subcontracts() {
       <div className="flex justify-between items-center mb-6">
         <h2 className="font-display text-2xl font-bold text-text-primary">{t("subcontracts.title")}</h2>
         <div className="flex gap-2">
-          <button onClick={() => setShowSubkModal(true)} className="flex items-center gap-2 bg-white border border-surface-border hover:bg-surface-muted text-text-primary px-4 py-2 rounded-lg text-sm font-semibold">
-            <Plus size={16} /> {t("subcontracts.new_subcontractor")}
-          </button>
+          
           <button onClick={() => setShowContractModal(true)} className="flex items-center gap-2 bg-brand-orange hover:bg-brand-orangeHover text-white px-4 py-2 rounded-lg text-sm font-semibold">
             <Plus size={16} /> {t("subcontracts.new")}
           </button>
@@ -131,7 +155,12 @@ export default function Subcontracts() {
         </div>
       </div>
 
-      <p className="text-sm font-semibold text-text-secondary mb-2">{t("subcontracts.registry")}</p>
+            <div className="flex justify-between items-center mb-2">
+        <p className="text-sm font-semibold text-text-secondary">{t("subcontracts.registry")}</p>
+        <button onClick={() => setShowSubkModal(true)} className="flex items-center gap-1 text-sm text-brand-orange hover:underline font-semibold">
+          <Plus size={14} /> {t("subcontracts.new_subcontractor")}
+        </button>
+      </div>
       <div className="flex flex-wrap gap-2 mb-8">
         {subcontractors.length === 0 && <span className="text-sm text-text-secondary">—</span>}
         {subcontractors.map((s) => (
@@ -209,6 +238,15 @@ export default function Subcontracts() {
                         {t("payment.record")}
                       </button>
                     </form>
+                  )}
+                  {m.status !== "draft" && m.status !== "submitted" && (
+                    <button
+                      onClick={() => downloadMeasurementCert(m.id, m.measurementNumber)}
+                      disabled={actionLoading}
+                      className="text-xs bg-white border border-surface-border text-text-primary px-2 py-1 rounded hover:bg-surface-muted flex items-center gap-1 disabled:opacity-50"
+                    >
+                      <Download size={12} /> PDF
+                    </button>
                   )}
                 </div>
               </div>

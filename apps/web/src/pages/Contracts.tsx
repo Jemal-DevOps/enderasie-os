@@ -1,8 +1,8 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
-import { Plus, X, Loader2 } from "lucide-react";
-//import { Plus, X, Loader2, FileText, DollarSign, CheckCircle } from "lucide-react";
+import { Plus, X, Loader2, Download } from "lucide-react";
 import { api } from "../lib/api";
+
 interface Contract { id: string; contractNumber: string; clientName: string; totalValue: string; retentionPercent: string; projectId: string; }
 interface Project { id: string; name: string; code: string; }
 interface Ipc { id: string; ipcNumber: string; claimedAmount: string; approvedAmount: string; status: string; contractId: string; }
@@ -22,7 +22,7 @@ export default function Contracts() {
   const [ipcForm, setIpcForm] = useState({ ipcNumber: "", claimedAmount: "" });
   const [receiptForm, setReceiptForm] = useState({ ipcId: "", amount: "" });
 
-    const loadData = async () => {
+  const loadData = async () => {
     try {
       const [cData, pData] = await Promise.all([
         api<{ contracts: Contract[] }>("/api/finance/contracts"),
@@ -47,25 +47,37 @@ export default function Contracts() {
   useEffect(() => { loadData(); }, [selectedContract]);
 
   const createContract = async (e: FormEvent) => {
-        if (!contractForm.projectId) {
+    if (!contractForm.projectId) {
       alert("Please select a project first.");
       return;
     }
-    e.preventDefault(); setActionLoading(true);
+    e.preventDefault();
+    setActionLoading(true);
     try {
       await api("/api/finance/contracts", { method: "POST", body: JSON.stringify(contractForm) });
-      setShowContractModal(false); setContractForm({ ...contractForm, contractNumber: "", clientName: "", totalValue: "" });
+      setShowContractModal(false);
+      setContractForm({ ...contractForm, contractNumber: "", clientName: "", totalValue: "" });
       await loadData();
-    } catch (err) { alert((err as Error).message); } finally { setActionLoading(false); }
+    } catch (err) {
+      alert((err as Error).message);
+    } finally {
+      setActionLoading(false);
+    }
   };
 
   const createIpc = async (e: FormEvent) => {
-    e.preventDefault(); setActionLoading(true);
+    e.preventDefault();
+    setActionLoading(true);
     try {
       await api(`/api/finance/contracts/${selectedContract?.id}/ipcs`, { method: "POST", body: JSON.stringify(ipcForm) });
-      setShowIpcModal(false); setIpcForm({ ipcNumber: "", claimedAmount: "" });
+      setShowIpcModal(false);
+      setIpcForm({ ipcNumber: "", claimedAmount: "" });
       await loadData();
-    } catch (err) { alert((err as Error).message); } finally { setActionLoading(false); }
+    } catch (err) {
+      alert((err as Error).message);
+    } finally {
+      setActionLoading(false);
+    }
   };
 
   const approveIpc = async (ipcId: string) => {
@@ -73,16 +85,51 @@ export default function Contracts() {
     try {
       await api(`/api/finance/ipcs/${ipcId}/approve`, { method: "POST", body: JSON.stringify({}) });
       await loadData();
-    } catch (err) { alert((err as Error).message); } finally { setActionLoading(false); }
+    } catch (err) {
+      alert((err as Error).message);
+    } finally {
+      setActionLoading(false);
+    }
   };
 
-  const recordReceipt = async (e: React.FormEvent) => {
-    e.preventDefault(); setActionLoading(true);
+  const recordReceipt = async (e: FormEvent) => {
+    e.preventDefault();
+    setActionLoading(true);
     try {
       await api(`/api/finance/ipcs/${receiptForm.ipcId}/receipts`, { method: "POST", body: JSON.stringify({ amount: receiptForm.amount }) });
       setReceiptForm({ ipcId: "", amount: "" });
       await loadData();
-    } catch (err) { alert((err as Error).message); } finally { setActionLoading(false); }
+    } catch (err) {
+      alert((err as Error).message);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const downloadCertificate = async (ipcId: string, ipcNumber: string) => {
+    setActionLoading(true);
+    try {
+      const token = localStorage.getItem("enderasie_token");
+      const base = (import.meta.env.VITE_API_URL as string) || "http://localhost:4000";
+      const res = await fetch(`${base}/api/finance/ipcs/${ipcId}/certificate`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        throw new Error(data?.error || "Failed to download certificate");
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `IPC_${ipcNumber}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      alert((err as Error).message);
+    } finally {
+      setActionLoading(false);
+    }
   };
 
   if (loading) return <div className="flex justify-center h-64 items-center"><Loader2 className="animate-spin text-brand-orange" size={32} /></div>;
@@ -173,7 +220,7 @@ export default function Contracts() {
                     </button>
                   )}
 
-                                    {(ipc.status === 'approved' || ipc.status === 'partially_paid') && (
+                  {(ipc.status === 'approved' || ipc.status === 'partially_paid') && (
                     <form onSubmit={recordReceipt} className="flex gap-1">
                       <input
                         type="number"
@@ -192,6 +239,16 @@ export default function Contracts() {
                       </button>
                     </form>
                   )}
+
+                  {ipc.status !== "draft" && (
+                    <button
+                      onClick={() => downloadCertificate(ipc.id, ipc.ipcNumber)}
+                      disabled={actionLoading}
+                      className="text-xs bg-white border border-surface-border text-text-primary px-2 py-1 rounded hover:bg-surface-muted flex items-center gap-1 disabled:opacity-50"
+                    >
+                      <Download size={12} /> PDF
+                    </button>
+                  )}
                 </div>
               </div>
             ))}
@@ -209,17 +266,17 @@ export default function Contracts() {
             </div>
             <form onSubmit={createContract} className="space-y-4">
               <select
-  value={contractForm.projectId}
-  onChange={(e) => setContractForm((f) => ({ ...f, projectId: e.target.value }))}
-  required
-  className="w-full rounded-lg border border-surface-border px-4 py-2.5"
->
-  <option value="">Select Project</option>
-  {projects.length === 0 && <option disabled>No projects found</option>}
-  {projects.map((p) => (
-    <option key={p.id} value={p.id}>{p.name}</option>
-  ))}
-</select>
+                value={contractForm.projectId}
+                onChange={(e) => setContractForm((f) => ({ ...f, projectId: e.target.value }))}
+                required
+                className="w-full rounded-lg border border-surface-border px-4 py-2.5"
+              >
+                <option value="">Select Project</option>
+                {projects.length === 0 && <option disabled>No projects found</option>}
+                {projects.map((p) => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </select>
               <input placeholder="Contract #" value={contractForm.contractNumber} onChange={e => setContractForm({...contractForm, contractNumber: e.target.value})} required className="w-full rounded-lg border border-surface-border px-4 py-2.5" />
               <input placeholder={t("contracts.client")} value={contractForm.clientName} onChange={e => setContractForm({...contractForm, clientName: e.target.value})} required className="w-full rounded-lg border border-surface-border px-4 py-2.5" />
               <input type="number" placeholder={t("contracts.value")} value={contractForm.totalValue} onChange={e => setContractForm({...contractForm, totalValue: e.target.value})} required className="w-full rounded-lg border border-surface-border px-4 py-2.5" />

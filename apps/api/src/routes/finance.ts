@@ -6,6 +6,7 @@ import { requireAuth, AuthRequest } from "../middleware/auth.js";
 import { requirePermission } from "../middleware/rbac.js";
 import { requireContractScope, requireIpcScope } from "../middleware/scope.js";
 import { asyncHandler } from "../lib/asyncHandler.js";
+import { jsPDF } from "jspdf";
 
 const router = Router();
 
@@ -236,6 +237,86 @@ router.post("/ipcs/:id/receipts", requireAuth, requireIpcScope, requirePermissio
 
     if (outcome.code !== 200) return res.status(outcome.code).json({ error: outcome.error });
     res.json({ message: "Receipt recorded", receipt: outcome.receipt, ipcStatus: outcome.ipcStatus });
+  })
+);
+// 7. GENERATE IPC CERTIFICATE PDF
+router.get("/ipcs/:id/certificate", requireAuth, requireIpcScope, requirePermission("finance.contract.view"),
+  asyncHandler(async (req: AuthRequest, res: Response) => {
+    const [ipc] = await db.select().from(ipcs).where(eq(ipcs.id, req.params.id));
+    if (!ipc) return res.status(404).json({ error: "IPC not found" });
+    if (ipc.status === "draft") return res.status(400).json({ error: "Cannot print certificate for a draft IPC" });
+
+    const [contract] = await db.select().from(contracts).where(eq(contracts.id, ipc.contractId));
+    if (!contract) return res.status(404).json({ error: "Contract not found" });
+
+    // --- PDF GENERATION ---
+    const doc = new jsPDF();
+    const approved = parseFloat(ipc.approvedAmount);
+    const retentionPct = parseFloat(contract.retentionPercent) / 100;
+    const retentionAmount = approved * retentionPct;
+    const netPayable = approved - retentionAmount;
+
+    // Header
+    doc.setFontSize(20);
+    doc.setTextColor(234, 88, 12); // Brand Orange
+    doc.text("ENDERASIE CONSTRUCTION PLC", 105, 20, { align: "center" });
+    
+    doc.setFontSize(14);
+    doc.setTextColor(0, 0, 0);
+    doc.text("INTERIM PAYMENT CERTIFICATE", 105, 30, { align: "center" });
+    doc.setLineWidth(0.5);
+    doc.line(20, 35, 190, 35);
+
+    // Meta Info
+    doc.setFontSize(10);
+    doc.text(`Certificate No: ${ipc.ipcNumber}`, 20, 45);
+    doc.text(`Contract No: ${contract.contractNumber}`, 20, 52);
+    doc.text(`Client: ${contract.clientName}`, 20, 59);
+    doc.text(`Date Issued: ${new Date().toLocaleDateString()}`, 130, 45);
+
+    // The Math
+    doc.setFontSize(12);
+    doc.text("FINANCIAL SUMMARY", 20, 75);
+    doc.setFontSize(10);
+    doc.text(`Total Value Contracted:`, 20, 85);
+    doc.text(`${parseFloat(contract.totalValue).toLocaleString()} ETB`, 130, 85);
+    
+    doc.text(`Amount Claimed (This Period):`, 20, 92);
+    doc.text(`${parseFloat(ipc.claimedAmount).toLocaleString()} ETB`, 130, 92);
+
+    doc.setFontSize(12);
+    doc.setTextColor(22, 163, 74); // Green
+    doc.text(`AMOUNT APPROVED:`, 20, 105);
+    doc.text(`${approved.toLocaleString()} ETB`, 130, 105);
+
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(10);
+    doc.text(`Less Retention (${contract.retentionPercent}%):`, 20, 115);
+    doc.text(`(${retentionAmount.toLocaleString()} ETB)`, 130, 115);
+
+    doc.setFontSize(12);
+    doc.setTextColor(14, 165, 233); // Blue
+    doc.text(`NET PAYABLE TO CONTRACTOR:`, 20, 125);
+    doc.text(`${netPayable.toLocaleString()} ETB`, 130, 125);
+
+    // Footer / Signatures
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(10);
+    doc.line(20, 180, 80, 180);
+    doc.text("Prepared By (QS)", 20, 185);
+    
+    doc.line(130, 180, 190, 180);
+    doc.text("Approved By (PM)", 130, 185);
+
+    doc.setFontSize(8);
+    doc.setTextColor(100, 100, 100);
+    doc.text("This certificate is mathematically enforced by Enderasie OS. Audit ID: " + ipc.id, 105, 280, { align: "center" });
+
+    // Send the buffer
+    const pdfBuffer = Buffer.from(doc.output("arraybuffer"));
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `attachment; filename=IPC_${ipc.ipcNumber}.pdf`);
+    res.send(pdfBuffer);
   })
 );
 

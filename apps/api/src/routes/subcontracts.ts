@@ -6,6 +6,7 @@ import { requireAuth, AuthRequest } from "../middleware/auth.js";
 import { requirePermission } from "../middleware/rbac.js";
 import { requireProjectScope, requireSubcontractScope, requireMeasurementScope } from "../middleware/scope.js";
 import { asyncHandler } from "../lib/asyncHandler.js";
+import { jsPDF } from "jspdf";
 
 const router = Router();
 
@@ -36,7 +37,7 @@ router.post("/subcontractors", requireAuth, requirePermission("subcontractor.cre
 router.get("/", requireAuth, requirePermission("subcontract.view"), asyncHandler(async (req: AuthRequest, res: Response) => {
   const rows = await db.select({
     id: subcontracts.id, contractNumber: subcontracts.contractNumber, totalValue: subcontracts.totalValue, retentionPercent: subcontracts.retentionPercent,
-    subcontractorName: subcontractors.name, trade: subcontractors.trade, projectName: sql<string>`'Project'`, // Simplified for list
+    subcontractorName: subcontractors.name, trade: subcontractors.trade,
   }).from(subcontracts).innerJoin(subcontractors, eq(subcontracts.subcontractorId, subcontractors.id)).where(eq(subcontracts.tenantId, req.user!.tenantId));
   res.json({ subcontracts: rows });
 }));
@@ -64,7 +65,9 @@ router.post("/:id/measurements", requireAuth, requireSubcontractScope, requirePe
 }));
 
 // 7. APPROVE MEASUREMENT (The Over-Measurement Guard)
-type ApproveOutcome = | { code: 200; measurement: typeof measurements.$inferSelect } | { code: 400 | 404 | 409; error: string };
+type ApproveOutcome =
+  | { code: 200; measurement: typeof measurements.$inferSelect }
+  | { code: 400 | 404 | 409; error: string };
 
 router.post("/measurements/:id/approve", requireAuth, requireMeasurementScope, requirePermission("measurement.approve"), asyncHandler(async (req: AuthRequest, res: Response) => {
   const parsed = approveMeasurementSchema.safeParse(req.body);
@@ -78,7 +81,6 @@ router.post("/measurements/:id/approve", requireAuth, requireMeasurementScope, r
     const [sub] = await tx.select().from(subcontracts).where(eq(subcontracts.id, m.subcontractId));
     if (!sub) return { code: 404, error: "Subcontract not found" };
 
-    // CALCULATE: Total Approved So Far (excluding this measurement)
     const [sumRow] = await tx.select({ value: sql<string>`coalesce(sum(${measurements.approvedAmount}), 0)` })
       .from(measurements)
       .where(and(eq(measurements.subcontractId, sub.id), sql`${measurements.id} <> ${m.id}`, sql`${measurements.status} in ('approved', 'partially_paid', 'fully_paid')`));
@@ -101,7 +103,9 @@ router.post("/measurements/:id/approve", requireAuth, requireMeasurementScope, r
 }));
 
 // 8. RECORD PAYMENT (The Retention-Aware Guard)
-type PaymentOutcome = | { code: 200; payment: typeof subcontractPayments.$inferSelect; status: string } | { code: 400 | 404 | 409; error: string };
+type PaymentOutcome =
+  | { code: 200; payment: typeof subcontractPayments.$inferSelect; status: string }
+  | { code: 400 | 404 | 409; error: string };
 
 router.post("/measurements/:id/payments", requireAuth, requireMeasurementScope, requirePermission("subcontract.payment.record"), asyncHandler(async (req: AuthRequest, res: Response) => {
   const parsed = recordPaymentSchema.safeParse(req.body);
@@ -124,7 +128,7 @@ router.post("/measurements/:id/payments", requireAuth, requireMeasurementScope, 
     const newPayment = parseFloat(parsed.data.amount);
 
     if (totalPaidSoFar + newPayment > netPayable) {
-      return { code: 400, error: `Payment rejected: total paid (${totalPaidSoFar} + ${newPayment}) exceeds net payable (${netPayable}). Retention held: ${approved * retentionPct}.` };
+      return { code: 400, error: `Payment rejected: total paid (${totalPaidSoFar} + ${newPayment}) exceed net payable (${netPayable}). Retention held: ${approved * retentionPct}.` };
     }
 
     const [payment] = await tx.insert(subcontractPayments).values({ measurementId: m.id, tenantId: req.user!.tenantId, amount: parsed.data.amount, paidDate: parsed.data.paidDate || new Date().toISOString().split("T")[0], reference: parsed.data.reference }).returning();
@@ -137,5 +141,81 @@ router.post("/measurements/:id/payments", requireAuth, requireMeasurementScope, 
   if (outcome.code !== 200) return res.status(outcome.code).json({ error: outcome.error });
   res.json({ message: "Payment Recorded", payment: outcome.payment, status: outcome.status });
 }));
+
+// 9. GENERATE MEASUREMENT CERTIFICATE PDF (top level — NOT nested!)
+router.get("/measurements/:id/certificate", requireAuth, requireMeasurementScope, requirePermission("subcontract.view"),
+  asyncHandler(async (req: AuthRequest, res: Response) => {
+    const [m] = await db.select().from(measurements).where(eq(measurements.id, req.params.id));
+    if (!m) return res.status(404).json({ error: "Measurement not found" });
+    if (m.status === "draft" || m.status === "submitted") {
+      return res.status(400).json({ error: "Cannot print certificate for an unapproved measurement" });
+    }
+
+    const [sub] = await db.select().from(subcontracts).where(eq(subcontracts.id, m.subcontractId));
+    if (!sub) return res.status(404).json({ error: "Subcontract not found" });
+    const [subk] = await db.select().from(subcontractors).where(eq(subcontractors.id, sub.subcontractorId));
+
+    const doc = new jsPDF();
+    const approved = parseFloat(m.approvedAmount);
+    const retentionPct = parseFloat(sub.retentionPercent) / 100;
+    const retentionAmount = approved * retentionPct;
+    const netPayable = approved - retentionAmount;
+
+    doc.setFontSize(20);
+    doc.setTextColor(234, 88, 12);
+    doc.text("ENDERASIE CONSTRUCTION PLC", 105, 20, { align: "center" });
+    doc.setFontSize(14);
+    doc.setTextColor(0, 0, 0);
+    doc.text("SUBCONTRACTOR MEASUREMENT CERTIFICATE", 105, 30, { align: "center" });
+    doc.setLineWidth(0.5);
+    doc.line(20, 35, 190, 35);
+
+    doc.setFontSize(10);
+    doc.text(`Certificate No: ${m.measurementNumber}`, 20, 45);
+    doc.text(`Subcontract No: ${sub.contractNumber}`, 20, 52);
+    doc.text(`Subcontractor: ${subk?.name ?? "-"}`, 20, 59);
+    doc.text(`Trade: ${subk?.trade ?? "-"}`, 20, 66);
+    doc.text(`Date Issued: ${new Date().toLocaleDateString()}`, 130, 45);
+
+    doc.setFontSize(12);
+    doc.text("FINANCIAL SUMMARY", 20, 82);
+    doc.setFontSize(10);
+    doc.text(`Total Subcontract Value:`, 20, 92);
+    doc.text(`${parseFloat(sub.totalValue).toLocaleString()} ETB`, 130, 92);
+    doc.text(`Amount Claimed (This Measurement):`, 20, 99);
+    doc.text(`${parseFloat(m.claimedAmount).toLocaleString()} ETB`, 130, 99);
+
+    doc.setFontSize(12);
+    doc.setTextColor(22, 163, 74);
+    doc.text(`AMOUNT APPROVED:`, 20, 112);
+    doc.text(`${approved.toLocaleString()} ETB`, 130, 112);
+
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(10);
+    doc.text(`Less Retention (${sub.retentionPercent}%):`, 20, 122);
+    doc.text(`(${retentionAmount.toLocaleString()} ETB)`, 130, 122);
+
+    doc.setFontSize(12);
+    doc.setTextColor(14, 165, 233);
+    doc.text(`NET PAYABLE TO SUBCONTRACTOR:`, 20, 132);
+    doc.text(`${netPayable.toLocaleString()} ETB`, 130, 132);
+
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(10);
+    doc.line(20, 180, 80, 180);
+    doc.text("Measured By (Site Eng.)", 20, 185);
+    doc.line(130, 180, 190, 180);
+    doc.text("Approved By (PM)", 130, 185);
+
+    doc.setFontSize(8);
+    doc.setTextColor(100, 100, 100);
+    doc.text("This certificate is mathematically enforced by Enderasie OS. Audit ID: " + m.id, 105, 280, { align: "center" });
+
+    const pdfBuffer = Buffer.from(doc.output("arraybuffer"));
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `attachment; filename=MC_${m.measurementNumber}.pdf`);
+    res.send(pdfBuffer);
+  })
+);
 
 export default router;
