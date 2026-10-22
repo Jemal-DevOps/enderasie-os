@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { CheckCircle, AlertCircle, Loader2 } from "lucide-react";
+import { CheckCircle, Loader2, RefreshCw } from "lucide-react";
 import { api } from "../lib/api";
 
 interface Action {
@@ -40,12 +40,10 @@ export default function Inbox() {
   const handleAction = async (id: string, action: string) => {
     setProcessing(id);
     try {
-      let endpoint = `/api/requests/${id}/${action}`;
+      const endpoint = `/api/requests/${id}/${action}`;
       let body = {};
-
       if (action === "issue") body = { issuedQty: 100, shortQty: 0 };
       if (action === "void" || action === "return") body = { reason: "Processed via UI" };
-
       await api(endpoint, { method: "POST", body: JSON.stringify(body) });
       await fetchInbox();
     } catch (err) {
@@ -57,9 +55,36 @@ export default function Inbox() {
 
   if (loading) return <div className="flex items-center justify-center h-64"><Loader2 className="animate-spin text-brand-orange" size={32} /></div>;
 
+  const statusCounts = approvals.reduce<Record<string, number>>((acc, a) => {
+    acc[a.status] = (acc[a.status] || 0) + 1;
+    return acc;
+  }, {});
+
   return (
-    <div className="max-w-4xl mx-auto">
-      <h2 className="font-display text-2xl font-bold text-text-primary mb-6">{t("inbox.title")}</h2>
+    <div className="w-full">
+      {/* PAGE HEADER */}
+      <div className="flex justify-between items-center mb-6">
+        <div>
+          <h2 className="font-display text-2xl font-bold text-text-primary">{t("inbox.title")}</h2>
+          <p className="text-sm text-text-secondary mt-1">
+            {approvals.length} {t("inbox.awaiting", "request(s) awaiting your action")}
+          </p>
+        </div>
+        <button onClick={fetchInbox} className="flex items-center gap-2 text-sm text-text-secondary hover:text-text-primary border border-surface-border bg-white rounded-lg px-3 py-2">
+          <RefreshCw size={15} /> {t("actions.refresh", "Refresh")}
+        </button>
+      </div>
+
+      {/* STATUS COUNT CHIPS */}
+      {approvals.length > 0 && (
+        <div className="flex flex-wrap gap-2 mb-4">
+          {Object.entries(statusCounts).map(([status, count]) => (
+            <span key={status} className="px-3 py-1 rounded-full bg-white border border-surface-border text-xs font-semibold text-text-secondary">
+              <span className="font-bold text-text-primary">{count}</span> · {t(`status.${status}`)}
+            </span>
+          ))}
+        </div>
+      )}
 
       {approvals.length === 0 ? (
         <div className="bg-white rounded-xl border border-surface-border p-12 text-center">
@@ -67,40 +92,49 @@ export default function Inbox() {
           <p className="text-text-secondary">{t("inbox.empty")}</p>
         </div>
       ) : (
-        <div className="space-y-4">
-          {approvals.map((item) => (
-            <div key={item.id} className="bg-white rounded-xl border border-surface-border p-6 shadow-sm hover:shadow-md transition-shadow">
-              <div className="flex justify-between items-start mb-4">
-                <div>
-                  <h3 className="font-semibold text-lg text-text-primary">{item.title}</h3>
-                  <p className="text-sm text-text-secondary">{item.projectName} · {new Date(item.createdAt).toLocaleDateString()}</p>
-                </div>
-                <span className="px-3 py-1 rounded-full bg-brand-amber/20 text-brand-orangeHover text-xs font-bold uppercase">
-                  {t(`status.${item.status}`)}
-                </span>
-              </div>
-
-              <div className="flex justify-between items-center pt-4 border-t border-surface-border">
-                <div className="text-sm text-text-secondary">
-                  {t("labels.cost")}: <span className="font-semibold text-text-primary">{Number(item.estimatedCost).toLocaleString()} ETB</span>
-                </div>
-                
-                <div className="flex gap-2">
-                  {item.availableActions.map((action) => (
-                    <button
-                      key={action.action}
-                      onClick={() => handleAction(item.id, action.action)}
-                      disabled={processing === item.id}
-                      className="flex items-center gap-2 bg-brand-orange hover:bg-brand-orangeHover text-white px-5 py-2 rounded-lg text-sm font-semibold transition-colors disabled:opacity-50"
-                    >
-                      {processing === item.id ? <Loader2 size={16} className="animate-spin" /> : <AlertCircle size={16} />}
-                      {action.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-          ))}
+        <div className="bg-white rounded-xl border border-surface-border overflow-hidden shadow-sm">
+          <table className="w-full text-sm">
+            <thead className="bg-surface-muted text-text-secondary text-left text-xs uppercase tracking-wider">
+              <tr>
+                <th className="px-6 py-3.5 font-semibold">{t("inbox.col.request", "Request")}</th>
+                <th className="px-6 py-3.5 font-semibold">{t("inbox.col.project", "Project")}</th>
+                <th className="px-6 py-3.5 font-semibold">{t("inbox.col.date", "Date")}</th>
+                <th className="px-6 py-3.5 font-semibold text-right">{t("inbox.col.cost", "Est. Cost")}</th>
+                <th className="px-6 py-3.5 font-semibold">{t("inbox.col.status", "Status")}</th>
+                <th className="px-6 py-3.5 font-semibold text-right">{t("inbox.col.actions", "Actions")}</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-surface-border">
+              {approvals.map((item) => (
+                <tr key={item.id} className="hover:bg-surface-muted/50 transition-colors">
+                  <td className="px-6 py-4 font-semibold text-text-primary">{item.title}</td>
+                  <td className="px-6 py-4 text-text-secondary">{item.projectName}</td>
+                  <td className="px-6 py-4 text-text-secondary">{new Date(item.createdAt).toLocaleDateString()}</td>
+                  <td className="px-6 py-4 text-right font-semibold text-text-primary tabular-nums">{Number(item.estimatedCost).toLocaleString()} ETB</td>
+                  <td className="px-6 py-4">
+                    <span className="px-3 py-1 rounded-full bg-brand-amber/20 text-brand-orangeHover text-xs font-bold uppercase">
+                      {t(`status.${item.status}`)}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="flex gap-2 justify-end">
+                      {item.availableActions.map((action) => (
+                        <button
+                          key={action.action}
+                          onClick={() => handleAction(item.id, action.action)}
+                          disabled={processing === item.id}
+                          className="flex items-center gap-1.5 bg-brand-orange hover:bg-brand-orangeHover text-white px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-colors disabled:opacity-50"
+                        >
+                          {processing === item.id && <Loader2 size={14} className="animate-spin" />}
+                          {action.label}
+                        </button>
+                      ))}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
     </div>

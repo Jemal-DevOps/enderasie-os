@@ -129,7 +129,7 @@ export default function Subcontracts() {
   const retentionHeld = selected ? totalMeasured * (parseFloat(selected.retentionPercent) / 100) : 0;
 
   return (
-    <div className="max-w-6xl mx-auto">
+    <div className="w-full">
       <div className="flex justify-between items-center mb-6">
         <h2 className="font-display text-2xl font-bold text-text-primary">{t("subcontracts.title")}</h2>
         <div className="flex gap-2">

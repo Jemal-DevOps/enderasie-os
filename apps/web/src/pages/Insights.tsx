@@ -46,7 +46,7 @@ export default function Insights() {
   ];
 
   return (
-    <div className="max-w-6xl mx-auto">
+   <div className="w-full">
       <h2 className="font-display text-2xl font-bold text-text-primary mb-6">{t("insights.title")}</h2>
 
       <div className={`p-6 rounded-xl border shadow-sm mb-6 ${kpi.netPosition >= 0 ? "bg-green-50 border-green-200" : "bg-red-50 border-red-200"}`}>

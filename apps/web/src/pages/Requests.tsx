@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { Plus, X, Loader2 } from "lucide-react";
 import { api } from "../lib/api";
@@ -47,7 +47,7 @@ export default function Requests() {
   };
   useEffect(() => { load(); }, []);
 
-  const createDraft = async (e: React.FormEvent) => {
+  const createDraft = async (e: FormEvent) => {
     e.preventDefault();
     setSaving(true);
     try {
@@ -73,10 +73,21 @@ export default function Requests() {
 
   if (loading) return <div className="flex justify-center h-64 items-center"><Loader2 className="animate-spin text-brand-orange" size={32} /></div>;
 
+  const statusCounts = rows.reduce<Record<string, number>>((acc, r) => {
+    acc[r.status] = (acc[r.status] || 0) + 1;
+    return acc;
+  }, {});
+
   return (
-    <div className="max-w-5xl mx-auto">
+    <div className="w-full">
+      {/* PAGE HEADER */}
       <div className="flex justify-between items-center mb-6">
-        <h2 className="font-display text-2xl font-bold text-text-primary">{t("requests.title")}</h2>
+        <div>
+          <h2 className="font-display text-2xl font-bold text-text-primary">{t("requests.title")}</h2>
+          <p className="text-sm text-text-secondary mt-1">
+            {rows.length} {t("requests.total", "total requests")}
+          </p>
+        </div>
         <button
           onClick={() => setShowForm(true)}
           className="flex items-center gap-2 bg-brand-orange hover:bg-brand-orangeHover text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors"
@@ -85,33 +96,46 @@ export default function Requests() {
         </button>
       </div>
 
+      {/* STATUS COUNT CHIPS */}
+      {rows.length > 0 && (
+        <div className="flex flex-wrap gap-2 mb-4">
+          {Object.entries(statusCounts).map(([status, count]) => (
+            <span key={status} className="px-3 py-1 rounded-full bg-white border border-surface-border text-xs font-semibold text-text-secondary">
+              <span className="font-bold text-text-primary">{count}</span> · {t(`status.${status}`)}
+            </span>
+          ))}
+        </div>
+      )}
+
       {rows.length === 0 ? (
         <div className="bg-white rounded-xl border border-surface-border p-12 text-center text-text-secondary">
           {t("requests.empty")}
         </div>
       ) : (
-        <div className="bg-white rounded-xl border border-surface-border overflow-hidden">
+        <div className="bg-white rounded-xl border border-surface-border overflow-hidden shadow-sm">
           <table className="w-full text-sm">
-            <thead className="bg-surface-muted text-text-secondary text-left">
+            <thead className="bg-surface-muted text-text-secondary text-left text-xs uppercase tracking-wider">
               <tr>
-                <th className="px-6 py-3 font-medium">{t("labels.title")}</th>
-                <th className="px-6 py-3 font-medium">{t("labels.project")}</th>
-                <th className="px-6 py-3 font-medium">{t("labels.status")}</th>
-                <th className="px-6 py-3 font-medium">{t("labels.cost")}</th>
-                <th className="px-6 py-3 font-medium"></th>
+                <th className="px-6 py-3.5 font-semibold">{t("labels.title")}</th>
+                <th className="px-6 py-3.5 font-semibold">{t("labels.project")}</th>
+                <th className="px-6 py-3.5 font-semibold">{t("inbox.col.date", "Date")}</th>
+                <th className="px-6 py-3.5 font-semibold">{t("labels.status")}</th>
+                <th className="px-6 py-3.5 font-semibold text-right">{t("labels.cost")}</th>
+                <th className="px-6 py-3.5 font-semibold text-right">{t("inbox.col.actions", "Actions")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-surface-border">
               {rows.map((r) => (
-                <tr key={r.id} className="hover:bg-surface-muted/50">
-                  <td className="px-6 py-4 font-medium text-text-primary">{r.title}</td>
+                <tr key={r.id} className="hover:bg-surface-muted/50 transition-colors">
+                  <td className="px-6 py-4 font-semibold text-text-primary">{r.title}</td>
                   <td className="px-6 py-4 text-text-secondary">{r.projectName}</td>
+                  <td className="px-6 py-4 text-text-secondary">{new Date(r.createdAt).toLocaleDateString()}</td>
                   <td className="px-6 py-4">
                     <span className={`px-3 py-1 rounded-full text-xs font-bold ${statusColors[r.status] || "bg-slate-100 text-slate-700"}`}>
                       {t(`status.${r.status}`)}
                     </span>
                   </td>
-                  <td className="px-6 py-4 text-text-secondary">
+                  <td className="px-6 py-4 text-right font-semibold text-text-primary tabular-nums">
                     {r.estimatedCost ? `${Number(r.estimatedCost).toLocaleString()} ETB` : "—"}
                   </td>
                   <td className="px-6 py-4 text-right">
@@ -131,10 +155,10 @@ export default function Requests() {
         </div>
       )}
 
-      {/* Create Modal */}
+      {/* CREATE MODAL */}
       {showForm && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 text-left">
             <div className="flex justify-between items-center mb-5">
               <h3 className="font-display text-lg font-bold text-text-primary">{t("requests.new")}</h3>
               <button onClick={() => setShowForm(false)} className="text-text-secondary hover:text-text-primary"><X size={20} /></button>
@@ -146,7 +170,7 @@ export default function Requests() {
                   value={form.projectId}
                   onChange={(e) => setForm((f) => ({ ...f, projectId: e.target.value }))}
                   required
-                  className="w-full rounded-lg border border-surface-border px-4 py-2.5 outline-none focus:border-brand-orange"
+                  className="w-full rounded-lg border border-surface-border px-4 py-2.5 outline-none focus:border-brand-orange bg-white"
                 >
                   {projects.map((p) => (
                     <option key={p.id} value={p.id}>{p.name} ({p.code})</option>
@@ -186,7 +210,7 @@ export default function Requests() {
                 disabled={saving}
                 className="w-full bg-brand-orange hover:bg-brand-orangeHover disabled:opacity-60 text-white px-4 py-3 rounded-lg font-semibold transition-colors"
               >
-                {saving ? "..." : t("requests.form.submit")}
+                {saving ? <Loader2 className="animate-spin mx-auto" size={20} /> : t("requests.form.submit")}
               </button>
             </form>
           </div>

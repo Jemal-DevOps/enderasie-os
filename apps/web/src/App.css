@@ -181,4 +181,11 @@
     right: 0;
     border-right-color: var(--border);
   }
+  /* #root {
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+  text-align: left;
+} */
 }

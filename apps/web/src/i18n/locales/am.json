@@ -121,5 +121,13 @@
   "insights.cashflow": "ወርሃዊ የገንዘብ ፍሰት",
   "insights.cost_structure": "ገቢ ከጪ መቅር ር",
   "insights.inflow": "ገ ገንዘ",
-  "insights.outflow": "ወጪ ገንዘብ"
+  "insights.outflow": "ወጪ ገንዘብ",
+  "inbox.awaiting": "እርምጃ የሚጠብቁ ጥያቂዎች",
+  "actions.refresh": "አድስ",
+  "inbox.col.request": "ጥያቂ",
+  "inbox.col.project": "ፕሮክት",
+  "inbox.col.date": "ቀን",
+  "inbox.col.cost": "ግምታዊ ጪ",
+  "inbox.col.status": "ሁኔ",
+  "inbox.col.actions": "እርምጃች"
 }

@@ -121,5 +121,13 @@
   "insights.cashflow": "Monthly Cash Flow",
   "insights.cost_structure": "Collection vs Cost Structure",
   "insights.inflow": "Money In",
-  "insights.outflow": "Money Out"
+  "insights.outflow": "Money Out",
+    "inbox.awaiting": "request(s) awaiting your action",
+  "actions.refresh": "Refresh",
+  "inbox.col.request": "Request",
+  "inbox.col.project": "Project",
+  "inbox.col.date": "Date",
+  "inbox.col.cost": "Est. Cost",
+  "inbox.col.status": "Status",
+  "inbox.col.actions": "Actions"
 }

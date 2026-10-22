@@ -94,7 +94,7 @@ export default function HR() {
   if (loading) return <div className="flex justify-center h-64 items-center"><Loader2 className="animate-spin text-brand-orange" size={32} /></div>;
 
   return (
-    <div className="max-w-6xl mx-auto">
+   <div className="w-full">
       <div className="flex justify-between items-center mb-6">
         <h2 className="font-display text-2xl font-bold text-text-primary">{t("hr.title")}</h2>
         <button onClick={() => setShowStaffModal(true)} className="flex items-center gap-2 bg-brand-orange hover:bg-brand-orangeHover text-white px-4 py-2 rounded-lg text-sm font-semibold">
